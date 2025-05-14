@@ -1,0 +1,59 @@
+name: Auto Commit Sholat
+
+on:
+  schedule:
+    # Menjadwalkan pekerjaan untuk setiap waktu sholat yang telah ditentukan
+    - cron: '0 5 * * *'  # Subuh - 05:00
+    - cron: '0 12 * * *' # Dzuhur - 12:00
+    - cron: '0 15 * * *' # Asar - 15:00
+    - cron: '0 18 * * *' # Maghrib - 18:00
+    - cron: '0 19 * * *' # Isya - 19:00
+
+  workflow_dispatch: # Menambahkan trigger manual jika diperlukan
+
+jobs:
+  auto_commit:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Get Prayer Times from Aladhan API
+      id: prayer_times
+      run: |
+        # Menginstal dependensi curl dan jq
+        sudo apt-get install -y curl jq
+
+        # Menentukan kota dan negara
+        CITY="Pekanbaru"
+        COUNTRY="Indonesia"
+        METHOD=2 # ISNA
+
+        # Mendapatkan data waktu sholat dari Aladhan API
+        response=$(curl -s "https://api.aladhan.com/v1/timingsByCity?city=${CITY}&country=${COUNTRY}&method=${METHOD}")
+
+        # Mengambil waktu sholat dari response JSON menggunakan jq
+        fajr=$(echo $response | jq -r '.data.timings.Fajr')
+        dhuhr=$(echo $response | jq -r '.data.timings.Dhuhr')
+        asr=$(echo $response | jq -r '.data.timings.Asr')
+        maghrib=$(echo $response | jq -r '.data.timings.Maghrib')
+        isha=$(echo $response | jq -r '.data.timings.Isha')
+
+        # Menyimpan waktu sholat ke dalam file untuk digunakan pada langkah berikutnya
+        echo "Subuh: $fajr" >> prayer_times.txt
+        echo "Dzuhur: $dhuhr" >> prayer_times.txt
+        echo "Asar: $asr" >> prayer_times.txt
+        echo "Maghrib: $maghrib" >> prayer_times.txt
+        echo "Isya: $isha" >> prayer_times.txt
+
+    - name: Update README.md with Prayer Times
+      run: |
+        # Menambahkan waktu sholat yang didapatkan ke README.md
+        echo "Sholat Times Update:" >> README.md
+        cat prayer_times.txt >> README.md
+        git config --global user.name "Auto Commit"
+        git config --global user.email "mulzahrianone@gmail.com"
+        git add README.md
+        git commit -m "Auto commit: Update Waktu Sholat"
+        git push origin main
