@@ -2,14 +2,15 @@ name: Auto Commit Sholat
 
 on:
   schedule:
-    # Menjadwalkan pekerjaan untuk setiap waktu sholat yang telah ditentukan
-    - cron: '0 5 * * *'  # Subuh - 05:00
-    - cron: '0 12 * * *' # Dzuhur - 12:00
-    - cron: '0 15 * * *' # Asar - 15:00
-    - cron: '0 18 * * *' # Maghrib - 18:00
-    - cron: '0 19 * * *' # Isya - 19:00
+    - cron: '0 5 * * *'   # Subuh - 05:00
+    - cron: '0 12 * * *'  # Dzuhur - 12:00
+    - cron: '0 15 * * *'  # Asar - 15:00
+    - cron: '0 18 * * *'  # Maghrib - 18:00
+    - cron: '0 19 * * *'  # Isya - 19:00
+  workflow_dispatch:
 
-  workflow_dispatch: # Menambahkan trigger manual jika diperlukan
+permissions:
+  contents: write
 
 jobs:
   auto_commit:
@@ -22,26 +23,25 @@ jobs:
     - name: Get Prayer Times from Aladhan API
       id: prayer_times
       run: |
-        # Menginstal dependensi curl dan jq
+        sudo apt-get update
         sudo apt-get install -y curl jq
 
-        # Menentukan kota dan negara
         CITY="Pekanbaru"
         COUNTRY="Indonesia"
-        METHOD=2 # ISNA
+        METHOD=2
 
-        # Mendapatkan data waktu sholat dari Aladhan API
+        # Call Aladhan API
         response=$(curl -s "https://api.aladhan.com/v1/timingsByCity?city=${CITY}&country=${COUNTRY}&method=${METHOD}")
 
-        # Mengambil waktu sholat dari response JSON menggunakan jq
+        # Extract prayer times using jq
         fajr=$(echo $response | jq -r '.data.timings.Fajr')
         dhuhr=$(echo $response | jq -r '.data.timings.Dhuhr')
         asr=$(echo $response | jq -r '.data.timings.Asr')
         maghrib=$(echo $response | jq -r '.data.timings.Maghrib')
         isha=$(echo $response | jq -r '.data.timings.Isha')
 
-        # Menyimpan waktu sholat ke dalam file untuk digunakan pada langkah berikutnya
-        echo "Subuh: $fajr" >> prayer_times.txt
+        # Write to temporary file
+        echo "Subuh: $fajr" > prayer_times.txt
         echo "Dzuhur: $dhuhr" >> prayer_times.txt
         echo "Asar: $asr" >> prayer_times.txt
         echo "Maghrib: $maghrib" >> prayer_times.txt
@@ -49,11 +49,16 @@ jobs:
 
     - name: Update README.md with Prayer Times
       run: |
-        # Menambahkan waktu sholat yang didapatkan ke README.md
-        echo "Sholat Times Update:" >> README.md
+        echo "" >> README.md
+        echo "### Sholat Times Update - $(date '+%Y-%m-%d %H:%M:%S')" >> README.md
         cat prayer_times.txt >> README.md
-        git config --global user.name "Auto Commit"
-        git config --global user.email "mulzahrianone@gmail.com"
+
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+        git pull origin main --rebase
         git add README.md
-        git commit -m "Auto commit: Update Waktu Sholat"
-        git push origin main
+        git commit -m "Auto commit: Update Waktu Sholat" --allow-empty
+
+        # Push using built-in GitHub token
+        git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} HEAD:main
