@@ -2,11 +2,11 @@ name: Auto Commit Sholat
 
 on:
   schedule:
-    - cron: '0 5 * * *'   # Subuh - 05:00
-    - cron: '0 12 * * *'  # Dzuhur - 12:00
-    - cron: '0 15 * * *'  # Asar - 15:00
-    - cron: '0 18 * * *'  # Maghrib - 18:00
-    - cron: '0 19 * * *'  # Isya - 19:00
+    - cron: '0 5 * * *'
+    - cron: '0 12 * * *'
+    - cron: '0 15 * * *'
+    - cron: '0 18 * * *'
+    - cron: '0 19 * * *'
   workflow_dispatch:
 
 permissions:
@@ -30,22 +30,28 @@ jobs:
         COUNTRY="Indonesia"
         METHOD=2
 
-        # Call Aladhan API
         response=$(curl -s "https://api.aladhan.com/v1/timingsByCity?city=${CITY}&country=${COUNTRY}&method=${METHOD}")
 
-        # Extract prayer times using jq
         fajr=$(echo $response | jq -r '.data.timings.Fajr')
         dhuhr=$(echo $response | jq -r '.data.timings.Dhuhr')
         asr=$(echo $response | jq -r '.data.timings.Asr')
         maghrib=$(echo $response | jq -r '.data.timings.Maghrib')
         isha=$(echo $response | jq -r '.data.timings.Isha')
 
-        # Write to temporary file
         echo "Subuh: $fajr" > prayer_times.txt
         echo "Dzuhur: $dhuhr" >> prayer_times.txt
         echo "Asar: $asr" >> prayer_times.txt
         echo "Maghrib: $maghrib" >> prayer_times.txt
         echo "Isya: $isha" >> prayer_times.txt
+
+    - name: Configure Git
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Pull latest changes
+      run: |
+        git pull origin main --rebase
 
     - name: Update README.md with Prayer Times
       run: |
@@ -53,12 +59,8 @@ jobs:
         echo "### Sholat Times Update - $(date '+%Y-%m-%d %H:%M:%S')" >> README.md
         cat prayer_times.txt >> README.md
 
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-        git pull origin main --rebase
+    - name: Commit and Push changes
+      run: |
         git add README.md
         git commit -m "Auto commit: Update Waktu Sholat" --allow-empty
-
-        # Push using built-in GitHub token
         git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} HEAD:main
